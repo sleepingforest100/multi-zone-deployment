@@ -1,22 +1,21 @@
-# Определение развертывания (Deployment) для веб-приложения в Kubernetes
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: phoenix-deployment # имя Deployment для идентификации
+  name: phoenix-deployment # Имя Deployment для идентификации
   labels:
     app: phoenix-app # Лейбл для группировки и выбора подов этого приложения
 spec:
-  replicas: 4  # Настроим 4 пода, чтобы справиться с пиковой нагрузкой
+  replicas: 4  # Настроим 4 пода для обработки пиковой нагрузки
   selector:
     matchLabels:
-      app: phoenix-app # Используем лейбл для выбора подов, к которым применяется это Deployment
+      app: phoenix-app # Лейбл для выбора подов, к которым применяется этот Deployment
   template:
     metadata:
       labels:
         app: phoenix-app # Лейбл для подов, создаваемых этим Deployment
     spec:
       containers:
-      - name: phoenix-container # имя для контейнера в этом Deployment
+      - name: phoenix-container # Имя для контейнера в этом Deployment
         image: phoenix-app-image:v1 # Имя и версия образа контейнера
         resources:
           requests:
@@ -55,7 +54,7 @@ spec:
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: phoenix-hpa #  имя для HPA
+  name: phoenix-hpa # Имя для HPA
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
