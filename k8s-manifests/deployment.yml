@@ -1,0 +1,72 @@
+# Определение развертывания (Deployment) для веб-приложения в Kubernetes
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: phoenix-deployment # имя Deployment для идентификации
+  labels:
+    app: phoenix-app # Лейбл для группировки и выбора подов этого приложения
+spec:
+  replicas: 4  # Настроим 4 пода, чтобы справиться с пиковой нагрузкой
+  selector:
+    matchLabels:
+      app: phoenix-app # Используем лейбл для выбора подов, к которым применяется это Deployment
+  template:
+    metadata:
+      labels:
+        app: phoenix-app # Лейбл для подов, создаваемых этим Deployment
+    spec:
+      containers:
+      - name: phoenix-container # имя для контейнера в этом Deployment
+        image: phoenix-app-image:v1 # Имя и версия образа контейнера
+        resources:
+          requests:
+            memory: "128Mi" # Запрашиваемое количество памяти для контейнера
+            cpu: "0.5"  # Запрашиваемое количество CPU (больше на старте приложения)
+          limits:
+            memory: "128Mi"  # Максимально допустимое количество памяти для контейнера
+            cpu: "1"  # Лимитируем использование CPU (для обработки пиковых нагрузок)
+        readinessProbe:
+          httpGet:
+            path: /ready # Эндпоинт для проверки готовности приложения
+            port: 80 # Порт, на котором приложение слушает запросы
+          initialDelaySeconds: 5 # Задержка перед первой проверкой готовности
+          periodSeconds: 10 # Интервал между последующими проверками готовности
+      affinity:
+        podAntiAffinity: # Настройка антиаффинити для предотвращения размещения подов на одной и той же ноде
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 1 # Вес условия антиаффинити
+            podAffinityTerm:
+              topologyKey: "kubernetes.io/hostname" # Ключ топологии для разнесения подов по хостам (нодам)
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - phoenix-app # Применяем антиаффинити к подам с лейблом "phoenix-app"
+        topologySpreadConstraints: # Ограничения на распределение подов по зонам
+        - maxSkew: 1 # Максимальное отклонение по количеству подов в одной зоне
+          topologyKey: "topology.kubernetes.io/zone" # Ключ топологии для распределения по зонам
+          whenUnsatisfiable: DoNotSchedule # Если условие не может быть выполнено, под не размещается
+          labelSelector:
+            matchLabels:
+              app: phoenix-app # Лейбл для соблюдения условий распределения по зонам
+---
+# Определение HorizontalPodAutoscaler (HPA) для автоматического масштабирования подов
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: phoenix-hpa #  имя для HPA
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: phoenix-deployment # Ссылаемся на Deployment для масштабирования
+  minReplicas: 1  # Минимальное количество подов при низкой ночной нагрузке
+  maxReplicas: 4  # Максимальное количество подов при пиковой дневной нагрузке
+  metrics:
+  - type: Resource # Масштабирование на основе использования ресурсов
+    resource:
+      name: cpu # Используем метрику CPU для масштабирования
+      target:
+        type: Utilization # Тип метрики - использование ресурса
+        averageUtilization: 50  # Среднее использование CPU в процентах для масштабирования
